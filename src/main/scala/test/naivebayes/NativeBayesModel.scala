@@ -36,8 +36,8 @@ abstract class NativeBayesModel() extends Serializable{
       val conf = new SparkConf()
         .setAppName("Bayes Test")
         .setMaster("local")
-        .set("spark.executor.memory","1g");
-      val sc = SparkContext(conf);
+        .set("spark.executor.memory","1g")
+      val sc = SparkContext(conf)
       sc
     }
 
@@ -105,7 +105,6 @@ abstract class NativeBayesModel() extends Serializable{
       k += 1
     }
   }
-
   def main(args: Array[String]): Unit = {
     val sc = getSparkContext()
     val partitionNum = sc.defaultMinPartitions
