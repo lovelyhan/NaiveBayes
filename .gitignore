@@ -1,0 +1,16 @@
+# Created by .ignore support plugin (hsz.mobi)
+### Project-work template
+/*/.idea/
+/.idea/
+/*/*.iml
+
+/.settings/
+/*/.settings/
+.project
+/*/.project
+.classpath
+/*/.classpath
+
+/log/
+/*/log/
+/*/target/
