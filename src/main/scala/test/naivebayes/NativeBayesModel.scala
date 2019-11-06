@@ -1,19 +1,14 @@
 package test.naivebayes
 
-import java.util
-
-import org.apache.spark.api.java.function.FlatMapFunction
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.mllib.linalg.{SparseVector, Vector, Vectors}
 import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.{SparkConf, SparkContext, SparkEnv}
+import org.apache.spark.{SparkConf, SparkContext}
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.ArrayBuffer
 
 object NativeBayesModel {
   private val logger: Logger = LoggerFactory.getLogger(NativeBayesModel.getClass)
@@ -25,19 +20,19 @@ object NativeBayesModel {
   }
 }
 
-import NativeBayesModel.Model._
-abstract class NativeBayesModel() extends Serializable{
+import test.naivebayes.NativeBayesModel.Model._
+class NativeBayesModel() extends Serializable{
   @transient protected val logger: Logger = NativeBayesModel.logger
   final val dimensions = 999990
   val epoch = 1
   val batchNum = 20
 
-    def getSparkContext(): SparkContext = {
+    def getSparkContext: SparkContext = {
       val conf = new SparkConf()
         .setAppName("Bayes Test")
         .setMaster("local")
         .set("spark.executor.memory","1g")
-      val sc = SparkContext(conf)
+      val sc = SparkContext.getOrCreate(conf)
       sc
     }
 
@@ -105,11 +100,10 @@ abstract class NativeBayesModel() extends Serializable{
       k += 1
     }
   }
-  def main(args: Array[String]): Unit = {
-    val sc = getSparkContext()
+  def run(path:String): Unit = {
+    val sc = getSparkContext
     val partitionNum = sc.defaultMinPartitions
     initParams()
-    val path = "/Users/apple/Desktop/avazu-app"
     val rdd = loadData(sc, path)
     val rddTotalNum = rdd.count()
     for (epochTime <- 0 until epoch) {
