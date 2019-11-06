@@ -1,7 +1,6 @@
-package main.scala.test.naivebayes
+package test.naivebayes
 
 import org.apache.spark.{SparkConf, SparkContext}
-import test.naivebayes.NativeBayesModel
 
 object BayesApp {
   def main(args: Array[String]): Unit = {
