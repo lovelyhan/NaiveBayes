@@ -27,15 +27,6 @@ class NativeBayesModel() extends Serializable{
   val epoch = 1
   val batchNum = 20
 
-    def getSparkContext: SparkContext = {
-      val conf = new SparkConf()
-        .setAppName("Bayes Test")
-        .setMaster("local")
-        .set("spark.executor.memory","1g")
-      val sc = SparkContext.getOrCreate(conf)
-      sc
-    }
-
     def loadData(sc: SparkContext,path: String):RDD[LabeledPoint] = {
       val startTime = System.currentTimeMillis()
       val dataRdd = MLUtils.loadLibSVMFile(sc,path)
@@ -100,8 +91,8 @@ class NativeBayesModel() extends Serializable{
       k += 1
     }
   }
-  def run(path:String): Unit = {
-    val sc = getSparkContext
+
+  def run(path: String, sc: SparkContext): Unit = {
     val partitionNum = sc.defaultMinPartitions
     initParams()
     val rdd = loadData(sc, path)
