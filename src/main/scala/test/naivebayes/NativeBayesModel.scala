@@ -1,6 +1,6 @@
 package test.naivebayes
 
-import org.apache.spark.mllib.linalg.{SparseVector, Vector, Vectors}
+import org.apache.spark.mllib.linalg.{DenseVector, SparseVector, Vector, Vectors}
 import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.rdd.RDD
@@ -23,7 +23,7 @@ object NativeBayesModel {
 import test.naivebayes.NativeBayesModel.Model._
 class NativeBayesModel() extends Serializable{
   @transient protected val logger: Logger = NativeBayesModel.logger
-  final val dimensions = 999990
+  final val dimensions = 999990+1
   val epoch = 1
   val batchNum = 20
 
@@ -44,8 +44,8 @@ class NativeBayesModel() extends Serializable{
       variance = Vectors.dense(variances)
     }
 
-  def calculateMeansAndVariance(miniBatch: Iterator[LabeledPoint],totalMeans: Vector,totalVariances: Vector): Iterator[Tuple2[Vector,Vector]] ={
-    val ans = new ArrayBuffer[Tuple2[Vector,Vector]]
+  def calculateMeansAndVariance(miniBatch: Iterator[LabeledPoint],totalMeans: Vector,totalVariances: Vector): Iterator[Tuple2[Array[Double],Array[Double]]] ={
+    val ans = new ArrayBuffer[Tuple2[Array[Double],Array[Double]]]
     val totalMeans = new Array[Double](dimensions)
     val totalVar = new Array[Double](dimensions)
     val data = miniBatch.toList
@@ -59,11 +59,11 @@ class NativeBayesModel() extends Serializable{
       //Sum up all to calculate mean value
       for (i <- 0 until keys.length) {
         val num = keys.apply(i)
-        totalMeans.update(num, totalMeans.apply(num) + values.apply(num))
+        totalMeans(num) += values.apply(i)
       }
     }
     for(m <- 0 until dimensions){
-      totalMeans.update(m, totalMeans.apply(m)/dataLength)
+      totalMeans(m) /= dataLength
     }
     for(n <- 0 until data.length){
       val labeledPoint = data.apply(n)
@@ -72,23 +72,17 @@ class NativeBayesModel() extends Serializable{
       val values = features.values
       for(k <- 0 until keys.length){
         val num = keys.apply(k)
-        val diff = values.apply(num) - totalMeans.apply(num)
-        totalVar.update(num,totalVar.apply(num)+diff * diff)
+        val diff = values.apply(k) - totalMeans(num)
+        totalVar(num) += diff * diff
       }
     }
-    ans.+=:(totalMeans.asInstanceOf[Vector],totalVar.asInstanceOf[Vector])
+    ans.+=:(totalMeans,totalVar)
    ans.iterator
   }
 
-  def axpy(a: Int,x: SparseVector,y:SparseVector):Unit ={
-    val xIndexs = x.indices
-    val xlength = xIndexs.length
-    val xValues = x.values
-    val yValues = y.values
-    var k = 0
-    while(k < xlength){
-      yValues(xIndexs(k)) += a * xValues(k)
-      k += 1
+  def axpy(a: Double, x: Array[Double], y: Array[Double]): Unit = {
+    for(i <- 0 to y.length){
+      y(i) += a * x(i)
     }
   }
 
@@ -108,21 +102,16 @@ class NativeBayesModel() extends Serializable{
         val broadcastVariance = sc.broadcast(variance)
         val total = oneIterationRDD.mapPartitions(miniList => calculateMeansAndVariance(miniList, broadcastMeans.value, broadcastVariance.value))
         logger.debug(s"Mean value and variance are calculated,took${System.currentTimeMillis() - startBatchTime} ms")
-        //结果向量转矩阵
         val sumAll = total.treeReduce((x, y) => {
-          val x1Sparse = x._1.asInstanceOf[SparseVector]
-          val x2Sparse = x._2.asInstanceOf[SparseVector]
-          val y1Sparse = y._1.asInstanceOf[SparseVector]
-          val y2Sparse = y._2.asInstanceOf[SparseVector]
-          axpy(1,x1Sparse,y1Sparse)
-          axpy(1,x2Sparse,y2Sparse)
-          (y1Sparse,y2Sparse)
+          axpy(1.0,x._1,y._1)
+          axpy(1.0,x._2,y._2)
+          y
         })
-        val partitionMean = sumAll._1.toArray
+        val partitionMean = sumAll._1
         for(j <- 0 to partitionMean.length){
           partitionMean(j) = partitionMean(j)/partitionNum
         }
-        val partitionVar = sumAll._2.toArray
+        val partitionVar = sumAll._2
         for(k <- 0 to partitionVar.length){
           partitionVar(k) = partitionVar(k) / partitionNum
         }
