@@ -23,7 +23,7 @@ object NativeBayesModel {
 import test.naivebayes.NativeBayesModel.Model._
 class NativeBayesModel() extends Serializable{
   @transient protected val logger: Logger = NativeBayesModel.logger
-  final val dimensions = 999990+1
+  final val dimensions = 999990
   val epoch = 1
   val batchNum = 20
 
@@ -34,6 +34,7 @@ class NativeBayesModel() extends Serializable{
         .persist(StorageLevel.MEMORY_AND_DISK)
       val totalLength = dataRdd.count()
       logger.info(s"Load data cost ${System.currentTimeMillis() - startTime} ms")
+      println(s"Load data cost ${System.currentTimeMillis() - startTime} ms")
       dataRdd
     }
 
@@ -81,7 +82,7 @@ class NativeBayesModel() extends Serializable{
   }
 
   def axpy(a: Double, x: Array[Double], y: Array[Double]): Unit = {
-    for(i <- 0 to y.length){
+    for(i <- 0 to y.length - 1){
       y(i) += a * x(i)
     }
   }
@@ -93,31 +94,35 @@ class NativeBayesModel() extends Serializable{
     val rddTotalNum = rdd.count()
     for (epochTime <- 0 until epoch) {
       logger.info(s"Epoch[$epoch] start training")
+      println(s"Epoch[$epoch] start training")
       for (batchNum <- 0 until batchNum) {
         logger.info(s"Iteration[$batchNum] starts")
+        println(s"Iteration[$batchNum] starts")
         val startBatchTime = System.currentTimeMillis()
         val oneIterationRDD = rdd.sample(false, 0.05, 0L)
         //广播全局参数
         val broadcastMeans = sc.broadcast(meanValues)
         val broadcastVariance = sc.broadcast(variance)
         val total = oneIterationRDD.mapPartitions(miniList => calculateMeansAndVariance(miniList, broadcastMeans.value, broadcastVariance.value))
-        logger.debug(s"Mean value and variance are calculated,took${System.currentTimeMillis() - startBatchTime} ms")
+        logger.info(s"Mean value and variance are calculated,took${System.currentTimeMillis() - startBatchTime} ms")
+        println(s"Mean value and variance are calculated,took${System.currentTimeMillis() - startBatchTime} ms")
         val sumAll = total.treeReduce((x, y) => {
           axpy(1.0,x._1,y._1)
           axpy(1.0,x._2,y._2)
           y
         })
         val partitionMean = sumAll._1
-        for(j <- 0 to partitionMean.length){
+        for(j <- 0 to partitionMean.length - 1){
           partitionMean(j) = partitionMean(j)/partitionNum
         }
         val partitionVar = sumAll._2
-        for(k <- 0 to partitionVar.length){
+        for(k <- 0 to partitionVar.length - 1){
           partitionVar(k) = partitionVar(k) / partitionNum
         }
         meanValues = Vectors.dense(partitionMean)
         variance = Vectors.dense(partitionVar)
-        logger.debug(s"This term's calculation finished,totally took ${System.currentTimeMillis() - startBatchTime} ms")
+        logger.info(s"This term's calculation finished,totally took ${System.currentTimeMillis() - startBatchTime} ms")
+        println(s"This term's calculation finished,totally took ${System.currentTimeMillis() - startBatchTime} ms")
       }
     }
   }
