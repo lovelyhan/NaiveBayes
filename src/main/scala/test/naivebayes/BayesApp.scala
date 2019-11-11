@@ -15,6 +15,6 @@ object BayesApp {
     val path = "/user/hadoop/data/avazu/avazu-app"
 
     // 其它的可以修改的配置项也应该这样抽取出来作为参数传递进去
-    new NativeBayesModel().run(path, sc)
+    new NativeBayesModel().train(path, sc)
   }
 }
