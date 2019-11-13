@@ -28,7 +28,7 @@ class NativeBayesModel() extends Serializable{
   @transient protected val logger: Logger = NativeBayesModel.logger
   final val dimensions = 999990
   val epoch = 1
-  val batchNum = 20
+  val batchNum = 5
 
     def loadData(sc: SparkContext,path: String):RDD[LabeledPoint] = {
       val startTime = System.currentTimeMillis()
@@ -111,12 +111,11 @@ class NativeBayesModel() extends Serializable{
     }
   }
 
-  def train(path: String, sc: SparkContext): Unit = {
+  def train(path: String, sc: SparkContext): Array[Vector] = {
     val partitionNum = sc.defaultMinPartitions
+    val returnList = new Array[Vector](4)
     initParams()
     val rdd = loadData(sc, path)
-    val rddTotalNum = rdd.count()
-    val ansVec = new Array[Vector](4)
     for (epochTime <- 0 until epoch) {
       logger.info(s"Epoch[$epoch] start training")
       println(s"Epoch[$epoch] start training")
@@ -124,7 +123,7 @@ class NativeBayesModel() extends Serializable{
         logger.info(s"Iteration[$batchNum] starts")
         println(s"Iteration[$batchNum] starts")
         val startBatchTime = System.currentTimeMillis()
-        val oneIterationRDD = rdd.sample(false, 0.05, 0L)
+        val oneIterationRDD = rdd.sample(false, 0.2, 0L)
         //广播全局参数
         val broadcastMeans0 = sc.broadcast(meanValues0)
         val broadcastVariance0 = sc.broadcast(variance0)
@@ -157,28 +156,53 @@ class NativeBayesModel() extends Serializable{
           partitionVar1(j) = partitionVar1(j)/partitionNum
         }
         meanValues0 = Vectors.dense(partitionMean0)
+        returnList(0) = meanValues0
         meanValue1 = Vectors.dense(partitionMean1)
+        returnList(1) = meanValue1
         variance0 = Vectors.dense(partitionVar0)
+        returnList(2) = variance0
         variance1 = Vectors.dense(partitionVar1)
+        returnList(3) = variance1
 
         logger.info(s"This term's calculation finished,totally took ${System.currentTimeMillis() - startBatchTime} ms")
         println(s"This term's calculation finished,totally took ${System.currentTimeMillis() - startBatchTime} ms")
       }
     }
-    ansVec
+    returnList
   }
 
   //预测
-  def predict(path: String, sc: SparkContext):Unit = {
+  def predict(path: String, sc: SparkContext,paramList: Array[Vector]):Unit = {
+    if(paramList.isEmpty){
+      logger.info(s"Paramlist from train is empty")
+      println(s"Paramlist from train is empty")
+    }
+    val mean0 = paramList(0)
+    if(mean0 == null){
+      logger.info(s"Param 0 from train is empty")
+    }
+    val mean1 = paramList(1)
+    if(mean1 == null){
+      logger.info(s"Param 1 from train is empty")
+    }
+    val var0 = paramList(2)
+    if(var0 == null){
+      logger.info(s"Param 2 from train is empty")
+    }
+    val var1 = paramList(3)
+    if(var1 == null){
+      logger.info(s"Param 3 from train is empty")
+    }
+
     val rdd = loadData(sc, path)
-    val predictRdd = rdd.sample(false,0.01,0)
+    val predictRdd = rdd.sample(false,0.1,0)
     val rddTotalNum = predictRdd.count()
-    var right = 0
+    logger.info(s"${rddTotalNum} is used to predict")
 
     val ans = predictRdd.map(x =>{
       //whetherTrue is used to compare whethre the prediction of our model
       //is equivalent to the original label
-      val whetherTrue = 0.0
+      var whetherTrue = 0.0
       val label = x.label
       var pre0 = 1.0
       var pre1 = 1.0
@@ -191,27 +215,30 @@ class NativeBayesModel() extends Serializable{
         val num = keys.apply(i)
         val xValue = values.apply(i)
         //prepare to predict
-        val mean_0 = meanValues0.apply(num)
-        val mean_1 = meanValue1.apply(num)
-        val var_0 = variance0.apply(num)
-        val var_1 = variance1.apply(num)
+        val mean_0 = mean0.apply(num)
+        val mean_1 = mean1.apply(num)
+        val var_0 = var0.apply(num)
+        val var_1 = var1.apply(num)
         var predict0 = (-1.0) * (xValue - mean_0) * (xValue - mean_0) / (2 * var_0)
         predict0 = math.exp(predict0)
         predict0 = (1.0) / math.sqrt(2 * math.Pi * var_0) * predict0
+        logger.info(s"The statistics of tag 0 is ${predict0}")
         var predict1 = (-1.0) * (xValue - mean_1) * (xValue - mean_1) / (2 * var_1)
+        logger.info(s"The statistics of tag 1 is ${predict1}")
         predict1 = math.exp(predict1)
         predict1 = (1.0) / math.sqrt(2 * math.Pi * var_1) * predict1
         pre1 *= predict0
       }
       //compare the value of prediction
       var finalSelect = 0.0
+      var cnt = 0
       if(pre1 >= pre0){
         finalSelect = 1.0
       }
       if (finalSelect == label){
-        finalSelect = 1.0
+        whetherTrue = 1.0
       }
-      finalSelect
+      whetherTrue
     })
     val finalTotal = ans.reduce((x,y) => {
      x+y

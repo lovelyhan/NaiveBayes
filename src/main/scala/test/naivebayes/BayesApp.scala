@@ -12,10 +12,10 @@ object BayesApp {
     val sc = SparkContext.getOrCreate(conf)
 
     // path 也抽出来, 方便使用的时候配置
-    val path = "/user/hadoop/data/avazu/avazu-app"
+    val path = "/user/hadoop/data/avazu/avazu-small"
     val model = new NativeBayesModel()
     // 其它的可以修改的配置项也应该这样抽取出来作为参数传递进去
-    model.train(path, sc)
-    model.predict(path,sc)
+    val ansList =  model.train(path, sc)
+    model.predict(path,sc,ansList)
   }
 }
