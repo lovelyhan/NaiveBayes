@@ -91,8 +91,8 @@ class NativeBayesModel() extends Serializable{
       val keys = features.indices
       val values = features.values
       for(k <- 0 until keys.length){
-        val num = keys.apply(k)
-        val diff = values.apply(k) - totalMeans0(num)
+        val num = keys(k)
+        val diff = values(k) - totalMeans0(num)
         if(label == 0.0){
           totalVar0(num) += diff * diff
         }
@@ -140,18 +140,26 @@ class NativeBayesModel() extends Serializable{
           y
         })
         val partitionMean0 = sumAll._1
+        val partitionMean0Length = partitionMean0.length
+        logger.info(s"Partition mean0 's length is ${partitionMean0Length}")
         for(j <- 0 to partitionMean0.length - 1){
           partitionMean0(j) = partitionMean0(j)/partitionNum
         }
         val partitionMean1 = sumAll._2
+        val partitionMean1Length = partitionMean1.length
+        logger.info(s"Partition mean0 's length is ${partitionMean1Length}")
         for(k <- 0 to partitionMean1.length - 1){
           partitionMean1(k) = partitionMean1(k) / partitionNum
         }
         val partitionVar0 = sumAll._3
+        val partitionVar0Length = partitionVar0.length
+        logger.info(s"Partition Var0 's length is ${partitionVar0Length}")
         for(j <- 0 to partitionVar0.length - 1){
           partitionVar0(j) = partitionVar0(j)/partitionNum
         }
         val partitionVar1 = sumAll._4
+        val partitionVar1Length = partitionVar1.length
+        logger.info(s"Partition Var1 's length is ${partitionVar1Length}")
         for(j <- 0 to partitionVar1.length - 1){
           partitionVar1(j) = partitionVar1(j)/partitionNum
         }
@@ -212,13 +220,13 @@ class NativeBayesModel() extends Serializable{
       //Sum up all to calculate mean value
       for (i <- 0 until keys.length) {
         //get the number of the feature
-        val num = keys.apply(i)
-        val xValue = values.apply(i)
+        val num = keys(i)
+        val xValue = values(i)
         //prepare to predict
-        val mean_0 = mean0.apply(num)
-        val mean_1 = mean1.apply(num)
-        val var_0 = var0.apply(num)
-        val var_1 = var1.apply(num)
+        val mean_0 = mean0(num)
+        val mean_1 = mean1(num)
+        val var_0 = var0(num)
+        val var_1 = var1(num)
         var predict0 = (-1.0) * (xValue - mean_0) * (xValue - mean_0) / (2 * var_0)
         predict0 = math.exp(predict0)
         predict0 = (1.0) / math.sqrt(2 * math.Pi * var_0) * predict0

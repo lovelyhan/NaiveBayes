@@ -10,7 +10,6 @@ object BayesApp {
 //      .setMaster("local")
 //      .set("spark.executor.memory","1g")
     val sc = SparkContext.getOrCreate(conf)
-
     // path 也抽出来, 方便使用的时候配置
     val path = "/user/hadoop/data/avazu/avazu-small"
     val model = new NativeBayesModel()
